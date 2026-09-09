@@ -130,39 +130,11 @@ python src/test_search.py --interactive
 
 ---
 
-## 4. Integración con el Agente (Persona 3)
+## 4. Guía de Integración para el Agente (Persona 3)
 
-El módulo `src/database.py` expone la función oficial para la herramienta / tool del agente:
+Para consultar los detalles técnicos de integración con el LLM (especificación de la función `search_knowledge_base`, formato JSON retornado, manejo de consultas fuera de tema y el schema de la herramienta para Groq / OpenAI), revise el archivo:
 
-```python
-from database import search_knowledge_base
-
-# Llamada típica desde el tool del LLM
-resultados = search_knowledge_base(query="¿Cuál es el peso máximo?", top_k=3)
-```
-
-### Formato retornado
-Retorna una lista de diccionarios con las FAQs más relevantes:
-```json
-[
-  {
-    "id": "FAQ-021",
-    "categoria": "Requisitos Físicos y Salud",
-    "pregunta": "¿Cuál es el peso máximo permitido para saltar?",
-    "respuesta": "El límite de peso máximo estricto para realizar el salto tándem es de 100 kg...",
-    "metadata": {
-      "fecha": "2026-09-29",
-      "empresa": "Parachute S.A.",
-      "unidad_medida": "Sistema Métrico Decimal"
-    },
-    "similarity": 0.7491
-  }
-]
-```
-
-### Manejo de preguntas no respaldadas
-Si la consulta del usuario no tiene relación con el evento o su similitud está por debajo del umbral (`threshold`), la función retorna una lista vacía `[]`.
-En ese caso, las instrucciones del agente LLM deben indicarle admitir amablemente que no dispone de dicha información en su base de conocimientos.
+👉 **[INTEGRACION.md](INTEGRACION.md)**
 
 ---
 
@@ -181,6 +153,7 @@ ai-function-calls/
 ├── docker-compose.yml                    # Definición del contenedor PostgreSQL + pgvector
 ├── requirements.txt                      # Dependencias del proyecto
 ├── .env.example                          # Plantilla de variables de entorno
+├── INTEGRACION.md                        # Guía y especificación para el agente (Persona 3)
 └── README.md                             # Documentación del proyecto
 ```
 
