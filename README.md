@@ -1,89 +1,147 @@
-# Hoja de Trabajo 4 - Function calls
+# Hoja de Trabajo 4 - Function calls & Base de Datos Vectorial
 
-## Infraestructura PostgreSQL + pgvector
+Sistema de preguntas frecuentes (FAQs) con base de datos vectorial PostgreSQL + pgvector y capacidades de Function Calling para un agente conversacional de Parachute S.A.
 
-La solución utiliza PostgreSQL 16 con la extensión `pgvector`, ejecutado en
-Docker Compose. Los embeddings generados con `all-MiniLM-L6-v2` deben tener
-384 dimensiones y se almacenan en la tabla `faq_embeddings`.
+---
+
+## 1. Infraestructura PostgreSQL + pgvector
+
+La solución utiliza PostgreSQL 16 con la extensión `pgvector`, ejecutado en Docker Compose. Los embeddings son generados con el modelo `all-MiniLM-L6-v2` (384 dimensiones) y se almacenan en la tabla `faq_embeddings` utilizando un índice HNSW para similitud coseno.
 
 ### Requisitos
 
 - Docker Engine y Docker Compose v2 (`docker compose`)
 - Python 3.10 o superior
 
-### Inicialización
+### Configuración inicial del entorno
 
-Desde este directorio (`ai-function-calls`):
+1. Clone el repositorio y sitúese en la raíz del proyecto:
+   ```bash
+   cd ai-function-calls
+   ```
 
+2. Cree su archivo `.env` a partir de la plantilla:
+   ```bash
+   cp .env.example .env
+   ```
+   *Nota: Si tiene otro servicio de PostgreSQL corriendo en su máquina en el puerto 5432, puede cambiar `POSTGRES_PORT` en `.env` (por ejemplo a `5434`).*
+
+3. Inicie el contenedor de PostgreSQL con pgvector:
+   ```bash
+   docker compose up -d
+   docker compose ps
+   ```
+
+4. Cree y active el entorno virtual de Python:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate
+   ```
+
+5. Instale las dependencias del proyecto:
+   ```bash
+   pip install -r requirements.txt
+   ```
+   *(En Linux con CPU, puede instalar previamente PyTorch CPU para optimizar la descarga: `pip install torch --index-url https://download.pytorch.org/whl/cpu`)*.
+
+El contenedor inicializa automáticamente la extensión `vector`, la tabla `faq_embeddings` y el índice HNSW mediante `docker/init.sql`.
+
+---
+
+## 2. Flujo de Trabajo y Verificación
+
+Siga este flujo paso a paso para verificar la infraestructura, cargar los datos y realizar consultas vectoriales:
+
+### Paso A: Verificar la conexión a la base de datos
+Compruebe que la conexión y la tabla existan antes de comenzar:
 ```bash
-cp .env.example .env
-# Edite .env y establezca una contraseña segura en POSTGRES_PASSWORD.
-docker compose up -d
-docker compose ps
+python src/database.py --test-connection
 ```
-
-Instale las dependencias del cargador:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-El primer arranque crea automáticamente la extensión `vector`, la tabla y sus
-índices mediante `docker/init.sql`. El volumen `parachute-pgdata` conserva los
-datos aunque el contenedor se detenga o se recree.
-
-Para revisar el estado o los logs:
-
-```bash
-docker compose logs -f postgres
-docker compose exec postgres pg_isready -U parachute -d parachute_faqs
-```
-
-La conexión desde el equipo host usa los valores de `.env`:
-
+**Salida esperada:**
 ```text
-host=localhost port=5432 dbname=parachute_faqs user=parachute password=<POSTGRES_PASSWORD>
+Probando conexión con PostgreSQL...
+✓ Conexión exitosa. Total de FAQs en base de datos: 120
 ```
 
-### Cargar el corpus
-
-Con PostgreSQL iniciado y el entorno virtual activo:
-
+### Paso B: Cargar el corpus de FAQs (Persona 1)
+Si la base de datos está vacía (`Total de FAQs: 0`) o requiere recargar el dump oficial:
 ```bash
 python src/load_corpus.py
 ```
+El cargador parsea los 120 registros de `data/Corpus_FAQs_Parachute_SA_2026.txt`, genera sus embeddings normalizados con `all-MiniLM-L6-v2` e inserta los registros sin duplicados (`upsert` por `id`).
 
-El script parsea las 120 FAQs del archivo
-`data/Corpus_FAQs_Parachute_SA_2026.txt`,
-genera embeddings de 384 dimensiones con `all-MiniLM-L6-v2` y ejecuta un
-`upsert` usando el `id` de cada FAQ. Por eso se puede ejecutar nuevamente sin
-crear registros repetidos; si cambia una FAQ, su fila y embedding se actualizan.
+### Paso C: Consultar el motor de búsqueda vectorial (Persona 2)
+Puede realizar consultas en lenguaje natural directamente desde la terminal con `src/database.py`:
 
-### Estructura
+```bash
+python src/database.py "Tienen fotos o videos de lo que es el salto en cuestión?"
+```
+
+**Salida de ejemplo:**
+```text
+Consultando: 'Tienen fotos o videos de lo que es el salto en cuestión?' (top_k=3, threshold=0.5)
+
+--- Resultado #1 (Similitud: 0.6529) ---
+ID: FAQ-081 | Categoría: Fotografía y Contenido Multimedia
+Pregunta: ¿Puedo saltar con mi propia cámara Go-Pro o teléfono celular?
+Respuesta: Por regulaciones de la Dirección General de Aeronáutica Civil (DGAC) y la USPA, no se permite el uso de cámaras...
+
+--- Resultado #2 (Similitud: 0.6029) ---
+ID: FAQ-029 | Categoría: Requisitos Físicos y Salud
+Pregunta: ¿Cuánto tiempo debo esperar tras hacer buceo antes de saltar?
+Respuesta: Se requiere un intervalo mínimo de 24 horas entre su última inmersión de buceo...
+```
+
+Parámetros opcionales:
+- `--top-k <N>`: Cantidad máxima de resultados a retornar (por defecto: `3`).
+- `--threshold <X>`: Umbral mínimo de similitud coseno (por defecto: `0.50`).
+
+---
+
+## 3. Suite de Pruebas de Búsqueda Vectorial (`test_search.py`)
+
+Para consultar la especificación detallada de los casos de prueba (consultas exactas, parafraseadas y fuera de dominio), ejecución automatizada y modo interactivo, revise el archivo:
+
+👉 **[TESTS.md](TESTS.md)**
+
+---
+
+## 4. Guía de Integración para el Agente
+
+Para consultar los detalles técnicos de integración con el LLM (especificación de la función `search_knowledge_base`, formato JSON retornado, manejo de consultas fuera de tema y el schema de la herramienta para Groq / OpenAI), revise el archivo:
+
+👉 **[INTEGRACION.md](INTEGRACION.md)**
+
+---
+
+## 5. Estructura del Proyecto
 
 ```text
 ai-function-calls/
-├── data/                 # Corpus de conocimiento
-├── docker/               # Script de inicialización de PostgreSQL
-├── src/                  # Código ejecutable
-│   └── load_corpus.py
-├── docker-compose.yml
-├── requirements.txt
-└── .env
+├── data/
+│   └── Corpus_FAQs_Parachute_SA_2026.txt  # Dump oficial de 120 FAQs
+├── docker/
+│   └── init.sql                          # Esquema de BD, extensión pgvector e índice HNSW
+├── src/
+│   ├── database.py                       # Conexión a PostgreSQL y motor de búsqueda vectorial
+│   ├── load_corpus.py                    # Parser del TXT y cargador con embeddings
+│   └── test_search.py                    # Suite de pruebas automatizadas y CLI interactivo
+├── docker-compose.yml                    # Definición del contenedor PostgreSQL + pgvector
+├── requirements.txt                      # Dependencias del proyecto
+├── .env.example                          # Plantilla de variables de entorno
+├── INTEGRACION.md                        # Guía de integración para el agente LLM
+├── TESTS.md                              # Suite de pruebas de búsqueda vectorial
+└── README.md                             # Documentación principal del proyecto
 ```
 
-### Reinicializar la base de datos
+---
 
-`init.sql` solo se ejecuta cuando PostgreSQL inicializa un volumen vacío. Para
-volver a crear el esquema desde cero, detenga el servicio y elimine únicamente
-el volumen de este proyecto:
+## 6. Reinicializar la Base de Datos
+
+Para borrar los datos persistidos y recrear el esquema desde cero:
 
 ```bash
-docker compose down
 docker compose down -v
 docker compose up -d
+python src/load_corpus.py
 ```
-
-Esto elimina los datos almacenados en el volumen definido por este proyecto.
