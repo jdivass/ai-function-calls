@@ -1,4 +1,4 @@
-# Guía de Integración para el Agente (Persona 3)
+# Guía de Integración para el Agente
 
 Este documento especifica el contrato de uso de la herramienta de búsqueda vectorial implementada en `src/database.py` para ser consumida por el agente conversacional (LLM / Groq SDK).
 

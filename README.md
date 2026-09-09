@@ -100,37 +100,13 @@ Parámetros opcionales:
 
 ## 3. Suite de Pruebas de Búsqueda Vectorial (`test_search.py`)
 
-Se implementó una suite de pruebas automatizada para validar los 3 escenarios fundamentales:
+Para consultar la especificación detallada de los casos de prueba (consultas exactas, parafraseadas y fuera de dominio), ejecución automatizada y modo interactivo, revise el archivo:
 
-1. **Consultas exactas:** Consultas copiadas textualmente del corpus oficial (deben coincidir con la FAQ esperada con similitud $\ge 0.65$).
-2. **Consultas parafraseadas:** Preguntas formuladas con lenguaje coloquial, variaciones de redacción o sinónimos (deben retornar la FAQ correspondiente con similitud $\ge 0.55$).
-3. **Consultas fuera de dominio (OOD):** Preguntas ajenas al paracaidismo (recetas, geografía, mecánica) que deben ser descartadas por el umbral retornando 0 resultados.
-
-### Ejecutar las pruebas automatizadas:
-```bash
-python src/test_search.py
-```
-**Resultado:** Ejecuta los 9 casos de prueba y genera un reporte detallado:
-```text
-================================================================================
- SUITE DE PRUEBAS DE BÚSQUEDA VECTORIAL - PARACHUTE S.A.
- Configuración: threshold=0.50, top_k=3
-================================================================================
-...
-================================================================================
- RESULTADO FINAL: 9/9 pruebas superadas.
-================================================================================
-```
-
-### Modo interactivo para pruebas libres:
-Permite ingresar consultas en tiempo real por consola para explorar el comportamiento del motor:
-```bash
-python src/test_search.py --interactive
-```
+👉 **[TESTS.md](TESTS.md)**
 
 ---
 
-## 4. Guía de Integración para el Agente (Persona 3)
+## 4. Guía de Integración para el Agente
 
 Para consultar los detalles técnicos de integración con el LLM (especificación de la función `search_knowledge_base`, formato JSON retornado, manejo de consultas fuera de tema y el schema de la herramienta para Groq / OpenAI), revise el archivo:
 
@@ -153,8 +129,9 @@ ai-function-calls/
 ├── docker-compose.yml                    # Definición del contenedor PostgreSQL + pgvector
 ├── requirements.txt                      # Dependencias del proyecto
 ├── .env.example                          # Plantilla de variables de entorno
-├── INTEGRACION.md                        # Guía y especificación para el agente (Persona 3)
-└── README.md                             # Documentación del proyecto
+├── INTEGRACION.md                        # Guía de integración para el agente LLM
+├── TESTS.md                              # Suite de pruebas de búsqueda vectorial
+└── README.md                             # Documentación principal del proyecto
 ```
 
 ---
