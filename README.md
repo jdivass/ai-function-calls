@@ -60,7 +60,7 @@ PYTHONPATH=src .venv/bin/python src/agent.py
 El agente fuerza una búsqueda inicial mediante `search_knowledge_base`, ejecuta los
 tool calls solicitados por el modelo y devuelve los resultados al modelo antes de
 generar la respuesta final. La sesión termina con `Bye`, `salir`, `exit`, `quit` o
-`Ctrl+C`.
+`Ctrl+C`, mostrando `Sesión finalizada.` y devolviendo un cierre normal de la aplicación.
 
 El historial se conserva durante toda la sesión, por lo que se pueden realizar varias
 preguntas sin reiniciar el proceso.

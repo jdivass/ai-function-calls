@@ -28,6 +28,7 @@ NO_ANSWER = (
     "base de conocimientos de Parachute S.A."
 )
 EXIT_COMMANDS = {"bye", "salir", "exit", "quit"}
+SESSION_END_MESSAGE = "Sesión finalizada."
 
 
 def _assistant_message_dict(message: Any) -> dict[str, Any]:
@@ -124,11 +125,11 @@ def run_interactive_session(
         try:
             user_query = input_fn("\nPregunta > ").strip()
         except (EOFError, KeyboardInterrupt):
-            output_fn("\nSesión finalizada.")
+            output_fn(f"\n{SESSION_END_MESSAGE}")
             return 0
 
         if user_query.lower() in EXIT_COMMANDS:
-            output_fn("Sesión finalizada.")
+            output_fn(SESSION_END_MESSAGE)
             return 0
         if not user_query:
             continue
@@ -136,6 +137,9 @@ def run_interactive_session(
         try:
             answer = run_agent_turn(client, messages, user_query)
             output_fn(f"\nRespuesta: {answer}")
+        except KeyboardInterrupt:
+            output_fn(f"\n{SESSION_END_MESSAGE}")
+            return 0
         except Exception as exc:
             output_fn(f"Error al procesar la pregunta: {exc}")
 
