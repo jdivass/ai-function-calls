@@ -62,6 +62,9 @@ tool calls solicitados por el modelo y devuelve los resultados al modelo antes d
 generar la respuesta final. La sesión termina con `Bye`, `salir`, `exit`, `quit` o
 `Ctrl+C`.
 
+El historial se conserva durante toda la sesión, por lo que se pueden realizar varias
+preguntas sin reiniciar el proceso.
+
 ---
 
 ## 2. Flujo de Trabajo y Verificación

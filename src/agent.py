@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Callable
 from typing import Any
 
 from groq_client import get_groq_client, get_groq_model
@@ -26,6 +27,7 @@ NO_ANSWER = (
     "Lo siento, no puedo responder esa pregunta con la información disponible en la "
     "base de conocimientos de Parachute S.A."
 )
+EXIT_COMMANDS = {"bye", "salir", "exit", "quit"}
 
 
 def _assistant_message_dict(message: Any) -> dict[str, Any]:
@@ -108,6 +110,36 @@ def run_agent_turn(
     raise RuntimeError("El modelo excedió el máximo de rondas de herramientas.")
 
 
+def run_interactive_session(
+    client: Any,
+    *,
+    input_fn: Callable[[str], str] = input,
+    output_fn: Callable[[str], None] = print,
+) -> int:
+    """Mantiene una sesión activa y conserva el historial entre preguntas."""
+    messages: list[dict[str, Any]] = [{"role": "system", "content": SYSTEM_PROMPT}]
+    output_fn("Agente Parachute S.A. listo. Escribe 'Bye' para salir.")
+
+    while True:
+        try:
+            user_query = input_fn("\nPregunta > ").strip()
+        except (EOFError, KeyboardInterrupt):
+            output_fn("\nSesión finalizada.")
+            return 0
+
+        if user_query.lower() in EXIT_COMMANDS:
+            output_fn("Sesión finalizada.")
+            return 0
+        if not user_query:
+            continue
+
+        try:
+            answer = run_agent_turn(client, messages, user_query)
+            output_fn(f"\nRespuesta: {answer}")
+        except Exception as exc:
+            output_fn(f"Error al procesar la pregunta: {exc}")
+
+
 def main() -> int:
     try:
         client = get_groq_client()
@@ -115,26 +147,7 @@ def main() -> int:
         print(f"Error de configuración: {exc}", file=sys.stderr)
         return 1
 
-    messages: list[dict[str, Any]] = [{"role": "system", "content": SYSTEM_PROMPT}]
-    print("Agente Parachute S.A. listo. Escribe 'Bye' para salir.")
-
-    while True:
-        try:
-            user_query = input("\nPregunta > ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print("\nSesión finalizada.")
-            return 0
-
-        if user_query.lower() in {"bye", "salir", "exit", "quit"}:
-            print("Sesión finalizada.")
-            return 0
-        if not user_query:
-            continue
-
-        try:
-            print(f"\nRespuesta: {run_agent_turn(client, messages, user_query)}")
-        except Exception as exc:
-            print(f"Error al procesar la pregunta: {exc}", file=sys.stderr)
+    return run_interactive_session(client)
 
 
 if __name__ == "__main__":
