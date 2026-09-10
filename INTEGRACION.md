@@ -108,7 +108,31 @@ Cuando `search_knowledge_base` retorne `[]`, el prompt del agente debe indicarle
 
 ---
 
-## 4. Ejemplo de Definición de Tool para Groq / OpenAI SDK
+## 4. Definición implementada de Tool para Groq / OpenAI SDK
+
+La definición lista para pasar al parámetro `tools` del cliente está en
+`src/tools.py`, en la constante `TOOLS`. La función ejecutora es
+`execute_search_knowledge_base` y recibe los argumentos JSON del tool call.
+
+```python
+from tools import TOOLS, TOOL_EXECUTORS
+
+response = client.chat.completions.create(
+    model=get_groq_model(),
+    messages=messages,
+    tools=TOOLS,
+)
+
+tool_call = response.choices[0].message.tool_calls[0]
+tool_result = TOOL_EXECUTORS[tool_call.function.name](tool_call.function.arguments)
+```
+
+La respuesta de `tool_result` es un JSON con la lista de FAQs encontradas por
+`search_knowledge_base`. El agente debe enviar ese resultado al modelo como
+mensaje `role="tool"` antes de solicitar la respuesta final.
+
+El schema usa `strict: true` y `additionalProperties: false`: el LLM solo puede
+proporcionar la consulta requerida.
 
 Para registrar la herramienta en el cliente de Groq/OpenAI compatible, se puede definir el schema de la siguiente manera:
 
