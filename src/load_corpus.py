@@ -7,12 +7,23 @@ import json
 import os
 import re
 import sys
+import warnings
+from contextlib import redirect_stderr
+from io import StringIO
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import psycopg2
 from dotenv import load_dotenv
+
+# El modelo público puede descargarse sin HF_TOKEN; evita mostrar el aviso
+# informativo de autenticación sin ocultar errores reales de Hugging Face.
+os.environ.setdefault("HF_HUB_VERBOSITY", "error")
+warnings.filterwarnings(
+    "ignore",
+    message=r"You are sending unauthenticated requests to the HF Hub.*",
+)
 from sentence_transformers import SentenceTransformer
 
 
@@ -112,7 +123,9 @@ ON CONFLICT (id) DO UPDATE SET
 
 def load_faqs(faqs: list[FAQ], batch_size: int = 32) -> None:
     print(f"Generando embeddings con {MODEL_NAME} para {len(faqs)} FAQs...")
-    model = SentenceTransformer(MODEL_NAME)
+    with StringIO() as suppressed_stderr:
+        with redirect_stderr(suppressed_stderr):
+            model = SentenceTransformer(MODEL_NAME)
     embeddings = model.encode(
         [faq.embedding_text for faq in faqs],
         batch_size=batch_size,

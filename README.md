@@ -57,15 +57,21 @@ Para iniciar el agente con function calling después de cargar el corpus:
 PYTHONPATH=src .venv/bin/python src/agent.py
 ```
 
-El agente fuerza una búsqueda inicial mediante `search_knowledge_base`, ejecuta los
-tool calls solicitados por el modelo y devuelve los resultados al modelo antes de
-generar la respuesta final. La sesión termina con `Bye`, `salir`, `exit`, `quit` o
+El agente ofrece `search_knowledge_base` al modelo, ejecuta los tool calls solicitados
+y devuelve los resultados al modelo antes de generar la respuesta final. Si el modelo
+no solicita la herramienta en la primera llamada, el agente responde de forma segura
+que no dispone de información. La sesión termina con `Bye`, `salir`, `exit`, `quit` o
 `Ctrl+C`, mostrando `Sesión finalizada.` y devolviendo un cierre normal de la aplicación.
 
 El historial se conserva durante toda la sesión, por lo que se pueden realizar varias
 preguntas sin reiniciar el proceso. Si la búsqueda no encuentra FAQs que superen el
 umbral de relevancia, el agente devuelve directamente el mensaje de información no
-disponible y no permite que el modelo invente una respuesta.
+disponible y no permite que el modelo invente una respuesta. Los saludos y preguntas
+de cortesía reciben respuestas breves predefinidas para mantener una conversación natural;
+las preguntas factuales siguen dependiendo de la base de conocimientos.
+
+En terminales compatibles, `readline` habilita las flechas izquierda/derecha para editar
+la pregunta y arriba/abajo para recorrer el historial de consultas.
 
 ---
 

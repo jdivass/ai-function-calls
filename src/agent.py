@@ -4,8 +4,17 @@ from __future__ import annotations
 
 import json
 import sys
+import unicodedata
 from collections.abc import Callable
 from typing import Any
+
+try:
+    import readline
+
+    readline.set_history_length(100)
+except ImportError:
+    # readline no está disponible en algunos entornos, por ejemplo Windows.
+    pass
 
 from groq_client import get_groq_client, get_groq_model
 from tools import TOOL_EXECUTORS, TOOLS
@@ -21,6 +30,10 @@ información suficiente, responde:
 \"Lo siento, no puedo responder esa pregunta con la información disponible en la
 base de conocimientos de Parachute S.A.\"
 No inventes datos. Responde en español y de forma clara y concisa.
+
+Los saludos, despedidas y preguntas sobre tus capacidades pueden recibir una respuesta
+breve de cortesía. Para cualquier pregunta factual sobre el evento, debes consultar la
+herramienta y responder únicamente con sus resultados.
 """
 
 NO_ANSWER = (
@@ -29,6 +42,39 @@ NO_ANSWER = (
 )
 EXIT_COMMANDS = {"bye", "salir", "exit", "quit"}
 SESSION_END_MESSAGE = "Sesión finalizada."
+
+
+def _normalize_text(text: str) -> str:
+    """Normaliza texto para reconocer expresiones conversacionales comunes."""
+    normalized = unicodedata.normalize("NFD", text.lower().strip())
+    return "".join(
+        char
+        for char in normalized
+        if unicodedata.category(char) not in {"Mn", "Po", "Pi", "Pf"}
+    )
+
+
+def get_conversational_response(query: str) -> str | None:
+    """Devuelve respuestas fijas para cortesía sin inventar datos del evento."""
+    normalized_query = _normalize_text(query)
+    responses = {
+        "hola": "¡Hola! Estoy aquí para ayudarte con información sobre el evento de Parachute S.A.",
+        "buenas": "¡Hola! Estoy aquí para ayudarte con información sobre el evento de Parachute S.A.",
+        "buenos dias": "¡Buenos días! Estoy aquí para ayudarte con información sobre el evento de Parachute S.A.",
+        "buenas tardes": "¡Buenas tardes! Estoy aquí para ayudarte con información sobre el evento de Parachute S.A.",
+        "buenas noches": "¡Buenas noches! Estoy aquí para ayudarte con información sobre el evento de Parachute S.A.",
+        "como estas": "¡Estoy bien, gracias! Puedo ayudarte con preguntas sobre el evento de Parachute S.A.",
+        "que puedes hacer": "Puedo ayudarte a consultar información de las FAQs del evento de Parachute S.A.",
+        "en que me puedes ayudar": "Puedo ayudarte a consultar información de las FAQs del evento de Parachute S.A.",
+        "que sabes": "Puedo ayudarte a consultar información de las FAQs del evento de Parachute S.A.",
+        "que sabes de parachute": "Puedo ayudarte a consultar información de las FAQs del evento de Parachute S.A.",
+        "que informacion tienes": "Puedo ayudarte a consultar las FAQs disponibles sobre el evento de Parachute S.A.",
+        "que info tienes": "Puedo ayudarte a consultar las FAQs disponibles sobre el evento de Parachute S.A.",
+        "que informacion tenes": "Puedo ayudarte a consultar las FAQs disponibles sobre el evento de Parachute S.A.",
+        "que info tenes": "Puedo ayudarte a consultar las FAQs disponibles sobre el evento de Parachute S.A.",
+        "gracias": "¡Con gusto! Estoy aquí para ayudarte.",
+    }
+    return responses.get(normalized_query)
 
 
 def _assistant_message_dict(message: Any) -> dict[str, Any]:
@@ -90,6 +136,16 @@ def run_agent_turn(
     if max_tool_rounds < 1:
         raise ValueError("max_tool_rounds debe ser mayor que cero.")
 
+    conversational_response = get_conversational_response(user_query)
+    if conversational_response is not None:
+        messages.extend(
+            [
+                {"role": "user", "content": user_query.strip()},
+                {"role": "assistant", "content": conversational_response},
+            ]
+        )
+        return conversational_response
+
     messages.append({"role": "user", "content": user_query.strip()})
 
     for round_number in range(max_tool_rounds):
@@ -97,12 +153,14 @@ def run_agent_turn(
             model=get_groq_model(),
             messages=messages,
             tools=TOOLS,
-            tool_choice="required" if round_number == 0 else "auto",
+            tool_choice="auto",
         )
         assistant_message = response.choices[0].message
         tool_calls = assistant_message.tool_calls or []
 
         if not tool_calls:
+            if round_number == 0:
+                return NO_ANSWER
             answer = (assistant_message.content or "").strip()
             return answer or NO_ANSWER
 

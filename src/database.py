@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import os
 import sys
-from contextlib import contextmanager
+import warnings
+from contextlib import contextmanager, redirect_stderr
+from io import StringIO
 from pathlib import Path
 from typing import Any, Generator
 
@@ -12,6 +14,14 @@ import psycopg2
 from psycopg2.extensions import connection as PgConnection
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
+
+# El modelo público puede descargarse sin HF_TOKEN; evita mostrar el aviso
+# informativo de autenticación sin ocultar errores reales de Hugging Face.
+os.environ.setdefault("HF_HUB_VERBOSITY", "error")
+warnings.filterwarnings(
+    "ignore",
+    message=r"You are sending unauthenticated requests to the HF Hub.*",
+)
 from sentence_transformers import SentenceTransformer
 
 # Ruta raíz del proyecto y carga de variables de entorno
@@ -72,7 +82,12 @@ def get_embedding_model() -> SentenceTransformer:
     """Carga y reutiliza en memoria el modelo all-MiniLM-L6-v2."""
     global _MODEL_INSTANCE
     if _MODEL_INSTANCE is None:
-        _MODEL_INSTANCE = SentenceTransformer(MODEL_NAME)
+        # transformers muestra una barra "Loading weights" por stderr al
+        # inicializar el modelo. La ocultamos solo durante esa carga; los
+        # errores siguen propagándose normalmente.
+        with StringIO() as suppressed_stderr:
+            with redirect_stderr(suppressed_stderr):
+                _MODEL_INSTANCE = SentenceTransformer(MODEL_NAME)
     return _MODEL_INSTANCE
 
 
