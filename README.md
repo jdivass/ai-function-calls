@@ -63,7 +63,9 @@ generar la respuesta final. La sesión termina con `Bye`, `salir`, `exit`, `quit
 `Ctrl+C`, mostrando `Sesión finalizada.` y devolviendo un cierre normal de la aplicación.
 
 El historial se conserva durante toda la sesión, por lo que se pueden realizar varias
-preguntas sin reiniciar el proceso.
+preguntas sin reiniciar el proceso. Si la búsqueda no encuentra FAQs que superen el
+umbral de relevancia, el agente devuelve directamente el mensaje de información no
+disponible y no permite que el modelo invente una respuesta.
 
 ---
 

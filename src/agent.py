@@ -65,6 +65,15 @@ def _execute_tool_call(tool_call: Any) -> str:
         return json.dumps({"error": f"No se pudo ejecutar la herramienta: {exc}"})
 
 
+def _is_empty_search_result(tool_result: str) -> bool:
+    """Indica si la herramienta respondió con una lista vacía de FAQs."""
+    try:
+        parsed_result = json.loads(tool_result)
+    except json.JSONDecodeError:
+        return False
+    return isinstance(parsed_result, list) and not parsed_result
+
+
 def run_agent_turn(
     client: Any,
     messages: list[dict[str, Any]],
@@ -98,15 +107,23 @@ def run_agent_turn(
             return answer or NO_ANSWER
 
         messages.append(_assistant_message_dict(assistant_message))
+        tool_results: list[str] = []
         for tool_call in tool_calls:
+            tool_result = _execute_tool_call(tool_call)
+            tool_results.append(tool_result)
             messages.append(
                 {
                     "role": "tool",
                     "tool_call_id": tool_call.id,
                     "name": tool_call.function.name,
-                    "content": _execute_tool_call(tool_call),
+                    "content": tool_result,
                 }
             )
+
+        # El umbral de similitud ya fue aplicado por la capa vectorial. Si no
+        # hay FAQs relevantes, no permitimos que el LLM complete la respuesta.
+        if tool_results and all(_is_empty_search_result(result) for result in tool_results):
+            return NO_ANSWER
 
     raise RuntimeError("El modelo excedió el máximo de rondas de herramientas.")
 
