@@ -51,6 +51,17 @@ La solución utiliza PostgreSQL 16 con la extensión `pgvector`, ejecutado en Do
 
 El contenedor inicializa automáticamente la extensión `vector`, la tabla `faq_embeddings` y el índice HNSW mediante `docker/init.sql`.
 
+Para iniciar el agente con function calling después de cargar el corpus:
+
+```bash
+PYTHONPATH=src .venv/bin/python src/agent.py
+```
+
+El agente fuerza una búsqueda inicial mediante `search_knowledge_base`, ejecuta los
+tool calls solicitados por el modelo y devuelve los resultados al modelo antes de
+generar la respuesta final. La sesión termina con `Bye`, `salir`, `exit`, `quit` o
+`Ctrl+C`.
+
 ---
 
 ## 2. Flujo de Trabajo y Verificación
@@ -129,6 +140,7 @@ ai-function-calls/
 │   └── init.sql                          # Esquema de BD, extensión pgvector e índice HNSW
 ├── src/
 │   ├── database.py                       # Conexión a PostgreSQL y motor de búsqueda vectorial
+│   ├── agent.py                          # Loop conversacional y ejecución de tool calls
 │   ├── groq_client.py                    # Cliente OpenAI-compatible apuntando a Groq
 │   ├── load_corpus.py                    # Parser del TXT y cargador con embeddings
 │   └── test_search.py                    # Suite de pruebas automatizadas y CLI interactivo
