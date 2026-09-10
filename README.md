@@ -44,6 +44,11 @@ La solución utiliza PostgreSQL 16 con la extensión `pgvector`, ejecutado en Do
    ```
    *(En Linux con CPU, puede instalar previamente PyTorch CPU para optimizar la descarga: `pip install torch --index-url https://download.pytorch.org/whl/cpu`)*.
 
+6. Configure el cliente OpenAI-compatible de Groq en `.env`:
+   - `GROQ_API_KEY`: API key de Groq (no la suba al repositorio).
+   - `GROQ_MODEL`: modelo que utilizará el agente.
+   - `GROQ_BASE_URL`: endpoint compatible de Groq; el valor del ejemplo ya está configurado.
+
 El contenedor inicializa automáticamente la extensión `vector`, la tabla `faq_embeddings` y el índice HNSW mediante `docker/init.sql`.
 
 ---
@@ -124,6 +129,7 @@ ai-function-calls/
 │   └── init.sql                          # Esquema de BD, extensión pgvector e índice HNSW
 ├── src/
 │   ├── database.py                       # Conexión a PostgreSQL y motor de búsqueda vectorial
+│   ├── groq_client.py                    # Cliente OpenAI-compatible apuntando a Groq
 │   ├── load_corpus.py                    # Parser del TXT y cargador con embeddings
 │   └── test_search.py                    # Suite de pruebas automatizadas y CLI interactivo
 ├── docker-compose.yml                    # Definición del contenedor PostgreSQL + pgvector
