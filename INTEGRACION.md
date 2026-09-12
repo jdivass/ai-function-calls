@@ -51,7 +51,7 @@ resultados = search_knowledge_base(query="¿Cuál es el peso máximo permitido p
 # Uso con parámetros personalizados:
 resultados = search_knowledge_base(
     query="¿Tienen fotos o videos del salto?",
-    top_k=3,           # Cantidad máxima de FAQs a recuperar (por defecto: 3)
+    top_k=5,           # Cantidad máxima de FAQs a recuperar (por defecto: 5)
     threshold=0.50     # Umbral de similitud coseno mínima (por defecto: 0.50 o SIMILARITY_THRESHOLD en .env)
 )
 ```

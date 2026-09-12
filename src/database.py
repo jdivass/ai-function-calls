@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import os
+import json
+import re
 import sys
+import unicodedata
 import warnings
 from contextlib import contextmanager, redirect_stderr
 from io import StringIO
@@ -29,11 +32,26 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
 
 MODEL_NAME = "all-MiniLM-L6-v2"
-DEFAULT_TOP_K = int(os.getenv("DEFAULT_TOP_K", "3"))
+DEFAULT_TOP_K = int(os.getenv("DEFAULT_TOP_K", "5"))
 DEFAULT_SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.5"))
+HYBRID_CANDIDATE_LIMIT = int(os.getenv("HYBRID_CANDIDATE_LIMIT", "120"))
 
 # Variable global para cachear el modelo de embeddings en memoria (Singleton)
 _MODEL_INSTANCE: SentenceTransformer | None = None
+_STOP_WORDS = {"a", "al", "de", "del", "el", "en", "es", "la", "las", "lo", "los", "para", "por", "que", "se", "un", "una", "y"}
+
+
+def _search_tokens(text: str) -> set[str]:
+    """Obtiene palabras significativas para desempatar resultados vectoriales."""
+    normalized = unicodedata.normalize("NFD", text.lower())
+    normalized = "".join(
+        char for char in normalized if unicodedata.category(char) != "Mn"
+    )
+    return {
+        token
+        for token in re.findall(r"[a-z0-9]+", normalized)
+        if token not in _STOP_WORDS
+    }
 
 
 def get_db_config() -> dict[str, Any]:
@@ -127,6 +145,10 @@ def search_faqs(
     vector_str = "[" + ",".join(str(v) for v in query_vector) + "]"
 
     # 2. Consultar PostgreSQL usando el operador <=> de distancia coseno y el índice HNSW
+    # El corpus oficial contiene 120 registros. Se recupera un conjunto amplio
+    # por pgvector y luego se reordena por coincidencia léxica para tolerar
+    # preguntas cortas o ambiguas sin crear reglas por FAQ.
+    candidate_limit = max(top_k, HYBRID_CANDIDATE_LIMIT)
     sql = """
     SELECT
         id,
@@ -137,19 +159,41 @@ def search_faqs(
         1 - (embedding <=> %s::vector) AS similarity
     FROM faq_embeddings
     ORDER BY embedding <=> %s::vector
-    LIMIT %s;
+        LIMIT %s;
     """
 
     results: list[dict[str, Any]] = []
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(sql, (vector_str, vector_str, top_k))
+            cur.execute(sql, (vector_str, vector_str, candidate_limit))
             rows = cur.fetchall()
 
+            query_tokens = _search_tokens(query)
+            ranked_rows: list[tuple[float, Any, float, float]] = []
             for row in rows:
                 similarity = float(row["similarity"])
+                searchable_text = " ".join(
+                    [
+                        row["categoria"],
+                        row["pregunta"],
+                        json.dumps(row["metadata"], ensure_ascii=False),
+                    ]
+                )
+                result_tokens = _search_tokens(searchable_text)
+                overlap = (
+                    len(query_tokens & result_tokens) / len(query_tokens)
+                    if query_tokens
+                    else 0.0
+                )
+                ranking_score = similarity + (0.50 * overlap)
+                ranked_rows.append((ranking_score, row, similarity, overlap))
+
+            for _, row, similarity, overlap in sorted(
+                ranked_rows, key=lambda item: item[0], reverse=True
+            )[:top_k]:
                 # Filtrar resultados que no alcancen el umbral de similitud
-                if similarity >= threshold:
+                strong_lexical_match = overlap >= 0.80
+                if similarity >= threshold or strong_lexical_match:
                     results.append(
                         {
                             "id": row["id"],
@@ -161,7 +205,44 @@ def search_faqs(
                         }
                     )
 
-    return results
+            # Los metadata contienen hechos globales del corpus (empresa,
+            # evento, fecha, unidades, etc.). Se convierten automáticamente en
+            # candidatos semánticos para poder responder sobre esos campos sin
+            # asociar frases concretas a valores concretos en el agente.
+            seen_metadata: set[str] = set()
+            for row in rows:
+                metadata = row["metadata"]
+                metadata_key = json.dumps(
+                    metadata, ensure_ascii=False, sort_keys=True
+                )
+                if metadata_key in seen_metadata:
+                    continue
+                seen_metadata.add(metadata_key)
+
+                metadata_text = " ".join(
+                    f"{key}: {value}" for key, value in metadata.items()
+                )
+                metadata_vector = generate_query_embedding(metadata_text)
+                metadata_similarity = sum(
+                    query_value * metadata_value
+                    for query_value, metadata_value in zip(
+                        query_vector, metadata_vector
+                    )
+                )
+                if metadata_similarity >= max(0.0, threshold - 0.03):
+                    results.append(
+                        {
+                            "id": "METADATA",
+                            "categoria": "Datos generales del corpus",
+                            "pregunta": "Contexto general del evento",
+                            "respuesta": metadata_text,
+                            "metadata": metadata,
+                            "similarity": round(metadata_similarity, 4),
+                        }
+                    )
+
+    results.sort(key=lambda item: item["similarity"], reverse=True)
+    return results[:top_k]
 
 
 def search_knowledge_base(

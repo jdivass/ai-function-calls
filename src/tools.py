@@ -15,7 +15,9 @@ SEARCH_KNOWLEDGE_BASE_TOOL: dict[str, Any] = {
         "description": (
             "Busca en la base de conocimientos oficial de Parachute S.A. "
             "las FAQs relacionadas con la consulta del usuario. "
-            "Usa esta herramienta antes de responder preguntas sobre el evento."
+            "Usa esta herramienta antes de responder preguntas sobre el evento. "
+            "La consulta debe conservar todas las partes y entidades mencionadas "
+            "por el usuario."
         ),
         "parameters": {
             "type": "object",
