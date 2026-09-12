@@ -44,7 +44,34 @@ La solución utiliza PostgreSQL 16 con la extensión `pgvector`, ejecutado en Do
    ```
    *(En Linux con CPU, puede instalar previamente PyTorch CPU para optimizar la descarga: `pip install torch --index-url https://download.pytorch.org/whl/cpu`)*.
 
+6. Configure el cliente OpenAI-compatible de Groq en `.env`:
+   - `GROQ_API_KEY`: API key de Groq (no la suba al repositorio).
+   - `GROQ_MODEL`: modelo que utilizará el agente.
+   - `GROQ_BASE_URL`: endpoint compatible de Groq; el valor del ejemplo ya está configurado.
+
 El contenedor inicializa automáticamente la extensión `vector`, la tabla `faq_embeddings` y el índice HNSW mediante `docker/init.sql`.
+
+Para iniciar el agente con function calling después de cargar el corpus:
+
+```bash
+PYTHONPATH=src .venv/bin/python src/agent.py
+```
+
+El agente ofrece `search_knowledge_base` al modelo, ejecuta los tool calls solicitados
+y devuelve los resultados al modelo antes de generar la respuesta final. Si el modelo
+no solicita la herramienta en la primera llamada, el agente responde de forma segura
+que no dispone de información. La sesión termina con `Bye`, `salir`, `exit`, `quit` o
+`Ctrl+C`, mostrando `Sesión finalizada.` y devolviendo un cierre normal de la aplicación.
+
+El historial se conserva durante toda la sesión, por lo que se pueden realizar varias
+preguntas sin reiniciar el proceso. Si la búsqueda no encuentra FAQs que superen el
+umbral de relevancia, el agente devuelve directamente el mensaje de información no
+disponible y no permite que el modelo invente una respuesta. Los saludos y preguntas
+de cortesía reciben respuestas breves predefinidas para mantener una conversación natural;
+las preguntas factuales siguen dependiendo de la base de conocimientos.
+
+En terminales compatibles, `readline` habilita las flechas izquierda/derecha para editar
+la pregunta y arriba/abajo para recorrer el historial de consultas.
 
 ---
 
@@ -124,6 +151,8 @@ ai-function-calls/
 │   └── init.sql                          # Esquema de BD, extensión pgvector e índice HNSW
 ├── src/
 │   ├── database.py                       # Conexión a PostgreSQL y motor de búsqueda vectorial
+│   ├── agent.py                          # Loop conversacional y ejecución de tool calls
+│   ├── groq_client.py                    # Cliente OpenAI-compatible apuntando a Groq
 │   ├── load_corpus.py                    # Parser del TXT y cargador con embeddings
 │   └── test_search.py                    # Suite de pruebas automatizadas y CLI interactivo
 ├── docker-compose.yml                    # Definición del contenedor PostgreSQL + pgvector
