@@ -57,10 +57,11 @@ Para iniciar el agente con function calling después de cargar el corpus:
 PYTHONPATH=src .venv/bin/python src/agent.py
 ```
 
-El agente ofrece `search_knowledge_base` al modelo, ejecuta los tool calls solicitados
-y devuelve los resultados al modelo antes de generar la respuesta final. Si el modelo
-no solicita la herramienta en la primera llamada, el agente responde de forma segura
-que no dispone de información. La sesión termina con `Bye`, `salir`, `exit`, `quit` o
+El agente ofrece `search_knowledge_base` al modelo, exige su uso para preguntas de
+contenido, ejecuta los tool calls solicitados y devuelve los resultados al modelo antes
+de generar la respuesta final. Los saludos y preguntas de cortesía se resuelven localmente.
+Si no hay FAQs relevantes, el agente responde de forma segura que no dispone de información.
+La sesión termina con `Bye`, `salir`, `exit`, `quit` o
 `Ctrl+C`, mostrando `Sesión finalizada.` y devolviendo un cierre normal de la aplicación.
 
 El historial se conserva durante toda la sesión, por lo que se pueden realizar varias
@@ -106,7 +107,7 @@ python src/database.py "Tienen fotos o videos de lo que es el salto en cuestión
 
 **Salida de ejemplo:**
 ```text
-Consultando: 'Tienen fotos o videos de lo que es el salto en cuestión?' (top_k=3, threshold=0.5)
+Consultando: 'Tienen fotos o videos de lo que es el salto en cuestión?' (top_k=5, threshold=0.5)
 
 --- Resultado #1 (Similitud: 0.6529) ---
 ID: FAQ-081 | Categoría: Fotografía y Contenido Multimedia
@@ -120,7 +121,7 @@ Respuesta: Se requiere un intervalo mínimo de 24 horas entre su última inmersi
 ```
 
 Parámetros opcionales:
-- `--top-k <N>`: Cantidad máxima de resultados a retornar (por defecto: `3`).
+- `--top-k <N>`: Cantidad máxima de resultados a retornar (por defecto: `5`).
 - `--threshold <X>`: Umbral mínimo de similitud coseno (por defecto: `0.50`).
 
 ---
